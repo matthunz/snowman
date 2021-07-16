@@ -1,13 +1,16 @@
-use crate::{Error, Message};
-use futures_intrusive::channel::shared::{ChannelSendFuture, Sender};
+use futures_intrusive::channel::shared::{self, ChannelSendFuture, Receiver, Sender};
+use futures_util::future;
 use http::{Request, Response};
 use parking_lot::RawMutex;
+use std::convert::Infallible;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use tower_service::Service;
+
+type Message = oneshot::Sender<i64>;
 
 // TODO remove unpin bounds and change variance
 pub struct SnowflakeServiceFuture<B> {
@@ -20,7 +23,7 @@ impl<B> Future for SnowflakeServiceFuture<B>
 where
     B: From<String> + Unpin,
 {
-    type Output = Result<Response<B>, Error>;
+    type Output = Result<Response<B>, Infallible>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let me = self.get_mut();
@@ -47,20 +50,48 @@ where
     B: From<String> + Unpin,
 {
     type Response = Response<B>;
-    type Error = Error;
+    type Error = Infallible;
     type Future = SnowflakeServiceFuture<B>;
 
     fn poll_ready(&mut self, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
-        todo!()
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, _req: Request<B>) -> Self::Future {
         let (tx, rx) = oneshot::channel();
-        let send = Box::pin(self.sender.send(Message::Snowflake(tx)));
+        let send = Box::pin(self.sender.send(tx));
         SnowflakeServiceFuture {
             send: Some(send),
             oneshot: rx,
             _marker: PhantomData,
         }
+    }
+}
+
+pub struct SnowflakeMakeService {
+    sender: Sender<Message>,
+}
+
+impl SnowflakeMakeService {
+    pub fn with_capacity(capacity: usize) -> (Self, Receiver<Message>) {
+        let (sender, receiver) = shared::channel(capacity);
+        (Self { sender }, receiver)
+    }
+}
+
+impl<T> Service<T> for SnowflakeMakeService {
+    type Response = SnowflakeService;
+    type Error = Infallible;
+    type Future = future::Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _req: T) -> Self::Future {
+        let service = SnowflakeService {
+            sender: self.sender.clone(),
+        };
+        future::ready(Ok(service))
     }
 }

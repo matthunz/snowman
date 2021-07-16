@@ -1,23 +1,19 @@
-use futures_intrusive::channel::shared;
+use hyper::Server;
+use server::SnowflakeMakeService;
 use snowman::Node;
-use tokio::sync::oneshot;
 use tokio::task;
 
 pub mod server;
-
-enum Message {
-    Snowflake(oneshot::Sender<i64>),
-    Close,
-}
 
 pub enum Error {}
 
 #[tokio::main]
 async fn main() {
+    let addr = "localhost:8080".parse().unwrap();
     let epoch = 0;
     let node_ids = 0..10;
 
-    let (sender, receiver) = shared::channel(100);
+    let (make_svc, receiver) = SnowflakeMakeService::with_capacity(100);
 
     let nodes = node_ids.map(|id| {
         let receiver = receiver.clone();
@@ -25,15 +21,17 @@ async fn main() {
             let mut node = Node::new(id, epoch);
             loop {
                 match receiver.receive().await {
-                    Some(Message::Snowflake(oneshot)) => {
+                    Some(oneshot) => {
                         let snowflake = node.snowflake(5).await.unwrap();
                         oneshot.send(snowflake).ok();
                     }
-                    Some(Message::Close) | None => break,
+                    None => break,
                 };
             }
         })
     });
+
+    Server::bind(&addr).serve(make_svc).await.unwrap();
 
     for handle in nodes {
         handle.await.unwrap();
