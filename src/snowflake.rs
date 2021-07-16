@@ -1,3 +1,7 @@
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct NodeIdError;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -5,7 +9,7 @@ pub struct NodeId(u16);
 
 impl NodeId {
     pub fn new(node_id: u16) -> Result<Self, NodeIdError> {
-        if node_id > 2 ^ 12 {
+        if node_id > 2u16.pow(12) {
             Err(NodeIdError)
         } else {
             Ok(Self(node_id))
@@ -13,6 +17,7 @@ impl NodeId {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TimestampError;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -28,7 +33,7 @@ impl Default for Timestamp {
 
 impl Timestamp {
     pub fn new(ms: i64) -> Result<Self, TimestampError> {
-        if ms > 2 ^ 41 {
+        if ms > 2i64.pow(41) {
             return Err(TimestampError);
         } else {
             Ok(Self::new_unchecked(ms))
@@ -40,6 +45,7 @@ impl Timestamp {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CounterError;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -53,7 +59,7 @@ impl Default for Counter {
 
 impl Counter {
     pub fn new(counter: u16) -> Result<Self, CounterError> {
-        if counter > 2 ^ 10 {
+        if counter > 2u16.pow(10) {
             Err(CounterError)
         } else {
             Ok(Self::new_unchecked(counter))
@@ -73,6 +79,8 @@ impl Counter {
     }
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Snowflake {
     pub id: i64,
 }

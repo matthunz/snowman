@@ -11,7 +11,7 @@ name = "snowman"
 required-features = ["server"]
 
 [features]
-server = ["futures-intrusive", "futures-util", "http", "hyper", "parking_lot", "tokio", "tower-service"]
+server = ["futures-intrusive", "futures-util", "http", "hyper", "parking_lot", "serde", "tokio", "tower-service"]
 default = ["server"]
 
 [dependencies]
@@ -20,5 +20,7 @@ futures-util = { version = "0.3.15", optional = true }
 http = { version = "0.2.4", optional = true }
 hyper = { version = "0.14.10", features = ["http1", "server", "tcp"], optional = true }
 parking_lot = { version = "0.11.1", optional = true }
+serde = { version = "1.0.126", features = ["derive"], optional = true }
+serde_json = "1.0.64"
 tokio = { version = "1.8.1", features = ["rt-multi-thread", "macros", "time"], optional = true }
 tower-service = { version = "0.3.1", optional = true }

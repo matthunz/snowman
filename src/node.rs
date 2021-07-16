@@ -2,11 +2,13 @@ use crate::{
     snowflake::{Counter, CounterError, NodeId, Timestamp, TimestampError},
     Snowflake,
 };
-use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum NodeError {
     Counter(CounterError),
-    SystemTime(SystemTimeError),
+    SystemTime(Duration),
     Timestamp(TimestampError),
 }
 
@@ -31,7 +33,6 @@ pub struct Node {
 
 impl Node {
     pub fn new(id: NodeId, epoch: u128) -> Self {
-        // TODO check id
         Self {
             id,
             epoch,
@@ -41,9 +42,10 @@ impl Node {
     }
 
     pub fn snowflake(&mut self) -> Result<Snowflake, NodeError> {
+        // TODO maybe use tokio::time::SystemTime
         let ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|error| NodeError::SystemTime(error))?
+            .map_err(|error| NodeError::SystemTime(error.duration()))?
             .as_millis();
 
         if ms < self.epoch {
@@ -67,7 +69,7 @@ impl Node {
     pub async fn snowflake_retryable(
         &mut self,
         retries: usize,
-        sleep: Duration,
+        sleep: std::time::Duration,
     ) -> Result<Snowflake, NodeError> {
         for _ in 0..retries + 1 {
             match self.snowflake() {
