@@ -1,20 +1,16 @@
-use futures_intrusive::channel::shared::{self, Sender};
+use futures_intrusive::channel::shared;
+use snowman::Node;
 use tokio::sync::oneshot;
 use tokio::task;
 
-mod node;
-pub use node::Node;
+pub mod server;
 
 enum Message {
     Snowflake(oneshot::Sender<i64>),
     Close,
 }
 
-async fn handle(sender: Sender<Message>) {
-    let (tx, rx) = oneshot::channel();
-    sender.send(Message::Snowflake(tx)).await.ok();
-    let snowflake = rx.await;
-}
+pub enum Error {}
 
 #[tokio::main]
 async fn main() {

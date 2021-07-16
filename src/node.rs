@@ -1,5 +1,5 @@
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::{ time};
+use tokio::time;
 
 pub struct Node {
     id: u16,

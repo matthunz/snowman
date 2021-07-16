@@ -280,7 +280,9 @@ dependencies = [
  "futures-intrusive",
  "http",
  "hyper",
+ "parking_lot",
  "tokio",
+ "tower-service",
 ]
 
 [[package]]
