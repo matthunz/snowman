@@ -1,11 +1,10 @@
 use hyper::Server;
 use server::SnowflakeMakeService;
+use snowman::snowflake::NodeId;
 use snowman::Node;
 use tokio::task;
 
 pub mod server;
-
-pub enum Error {}
 
 #[tokio::main]
 async fn main() {
@@ -16,13 +15,14 @@ async fn main() {
     let (make_svc, receiver) = SnowflakeMakeService::with_capacity(100);
 
     let nodes = node_ids.map(|id| {
+        let node_id = NodeId::new(id).map_err(|_| ()).unwrap();
         let receiver = receiver.clone();
         task::spawn(async move {
-            let mut node = Node::new(id, epoch);
+            let mut node = Node::new(node_id, epoch);
             loop {
                 match receiver.receive().await {
                     Some(oneshot) => {
-                        let snowflake = node.snowflake(5).await.unwrap();
+                        let snowflake = node.snowflake(5).await.map_err(|_| ()).unwrap();
                         oneshot.send(snowflake).ok();
                     }
                     None => break,

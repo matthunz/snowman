@@ -1,50 +1,77 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::{
+    snowflake::{Counter, CounterError, NodeId, Timestamp, TimestampError},
+    Snowflake,
+};
+use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 use tokio::time;
 
+pub enum NodeError {
+    Counter(CounterError),
+    SystemTime(SystemTimeError),
+    Timestamp(TimestampError),
+}
+
+impl From<CounterError> for NodeError {
+    fn from(error: CounterError) -> Self {
+        Self::Counter(error)
+    }
+}
+
+impl From<TimestampError> for NodeError {
+    fn from(error: TimestampError) -> Self {
+        Self::Timestamp(error)
+    }
+}
+
 pub struct Node {
-    id: u16,
+    id: NodeId,
     epoch: u128,
-    counter: u16,
-    last_timestamp: u64,
+    counter: Counter,
+    last_timestamp: Timestamp,
 }
 
 impl Node {
-    pub fn new(id: u16, epoch: u128) -> Self {
+    pub fn new(id: NodeId, epoch: u128) -> Self {
+        // TODO check id
         Self {
             id,
             epoch,
-            counter: 0,
-            last_timestamp: 0,
+            counter: Counter::default(),
+            last_timestamp: Timestamp::default(),
         }
     }
 
-    pub fn try_snowflake(&mut self) -> Option<i64> {
-        let timestamp = (SystemTime::now()
+    pub fn try_snowflake(&mut self) -> Result<Snowflake, NodeError> {
+        let ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-            - self.epoch) as u64;
+            .map_err(|error| NodeError::SystemTime(error))?
+            .as_millis();
+
+        if ms < self.epoch {
+            //let duration = Duration::from_millis((self.epoch - ms) as _);
+            //return Err(Error::SystemTime(duration));
+        }
+
+        let timestamp = Timestamp::new((ms - self.epoch) as _)?;
 
         if timestamp == self.last_timestamp {
-            if self.counter > 2 ^ 10 {
-                return None;
-            }
-            self.counter += 1;
+            self.counter.increment()?;
         } else {
             self.last_timestamp = timestamp;
-            self.counter = 0;
+            self.counter.reset();
         }
 
-        Some(0)
+        Ok(Snowflake::new(timestamp, self.id, self.counter))
     }
 
-    pub async fn snowflake(&mut self, retries: usize) -> Option<i64> {
+    pub async fn snowflake(&mut self, retries: usize) -> Result<Snowflake, NodeError> {
         for _ in 0..retries + 1 {
             match self.try_snowflake() {
-                Some(snowflake) => return Some(snowflake),
-                None => time::sleep(Duration::from_millis(1)).await,
+                Ok(snowflake) => return Ok(snowflake),
+                Err(NodeError::Counter(_)) => time::sleep(Duration::from_millis(1)).await,
+                Err(error) => return Err(error),
             }
         }
-        None
+        todo!()
     }
 }

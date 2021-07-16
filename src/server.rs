@@ -2,6 +2,7 @@ use futures_intrusive::channel::shared::{self, ChannelSendFuture, Receiver, Send
 use futures_util::future;
 use http::{Request, Response};
 use parking_lot::RawMutex;
+use snowman::Snowflake;
 use std::convert::Infallible;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -10,12 +11,12 @@ use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 use tower_service::Service;
 
-type Message = oneshot::Sender<i64>;
+type Message = oneshot::Sender<Snowflake>;
 
 // TODO remove unpin bounds and change variance
 pub struct SnowflakeServiceFuture<B> {
     send: Option<Pin<Box<ChannelSendFuture<RawMutex, Message>>>>,
-    oneshot: oneshot::Receiver<i64>,
+    oneshot: oneshot::Receiver<Snowflake>,
     _marker: PhantomData<B>,
 }
 
@@ -36,7 +37,7 @@ where
         }
         Pin::new(&mut me.oneshot)
             .poll(cx)
-            .map_ok(|snowflake| Response::new(B::from(snowflake.to_string())))
+            .map_ok(|snowflake| Response::new(B::from(snowflake.id.to_string())))
             .map_err(|_| todo!())
     }
 }
