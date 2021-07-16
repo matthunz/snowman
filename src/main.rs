@@ -1,10 +1,9 @@
 use hyper::Server;
-use server::SnowflakeMakeService;
+use snowman::server::SnowflakeMakeService;
 use snowman::snowflake::NodeId;
 use snowman::Node;
+use std::time::Duration;
 use tokio::task;
-
-pub mod server;
 
 #[tokio::main]
 async fn main() {
@@ -22,7 +21,11 @@ async fn main() {
             loop {
                 match receiver.receive().await {
                     Some(oneshot) => {
-                        let snowflake = node.snowflake(5).await.map_err(|_| ()).unwrap();
+                        let snowflake = node
+                            .snowflake_retryable(5, Duration::from_millis(1))
+                            .await
+                            .map_err(|_| ())
+                            .unwrap();
                         oneshot.send(snowflake).ok();
                     }
                     None => break,

@@ -2,8 +2,7 @@ use crate::{
     snowflake::{Counter, CounterError, NodeId, Timestamp, TimestampError},
     Snowflake,
 };
-use std::time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
-use tokio::time;
+use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
 
 pub enum NodeError {
     Counter(CounterError),
@@ -41,7 +40,7 @@ impl Node {
         }
     }
 
-    pub fn try_snowflake(&mut self) -> Result<Snowflake, NodeError> {
+    pub fn snowflake(&mut self) -> Result<Snowflake, NodeError> {
         let ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(|error| NodeError::SystemTime(error))?
@@ -64,11 +63,16 @@ impl Node {
         Ok(Snowflake::new(timestamp, self.id, self.counter))
     }
 
-    pub async fn snowflake(&mut self, retries: usize) -> Result<Snowflake, NodeError> {
+    #[cfg(feature = "tokio")]
+    pub async fn snowflake_retryable(
+        &mut self,
+        retries: usize,
+        sleep: Duration,
+    ) -> Result<Snowflake, NodeError> {
         for _ in 0..retries + 1 {
-            match self.try_snowflake() {
+            match self.snowflake() {
                 Ok(snowflake) => return Ok(snowflake),
-                Err(NodeError::Counter(_)) => time::sleep(Duration::from_millis(1)).await,
+                Err(NodeError::Counter(_)) => tokio::time::sleep(sleep).await,
                 Err(error) => return Err(error),
             }
         }

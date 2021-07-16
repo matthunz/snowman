@@ -1,8 +1,8 @@
+use crate::Snowflake;
 use futures_intrusive::channel::shared::{self, ChannelSendFuture, Receiver, Sender};
 use futures_util::future;
 use http::{Request, Response};
 use parking_lot::RawMutex;
-use snowman::Snowflake;
 use std::convert::Infallible;
 use std::future::Future;
 use std::marker::PhantomData;
