@@ -1,12 +1,12 @@
 use crate::node::NodeError;
 use crate::Snowflake;
+use crate::http::SnowflakeResponse;
 use futures_intrusive::channel::shared::{self, ChannelSendFuture, Receiver, Sender};
 use futures_util::future;
 use http::{Request, Response, StatusCode};
 use hyper::server::conn::AddrIncoming;
 use hyper::Server;
 use parking_lot::RawMutex;
-use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -62,13 +62,6 @@ where
             })
             .map_err(|_| todo!())
     }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SnowflakeResponse {
-    Snowflake(Snowflake),
-    Error(NodeError),
 }
 
 pub struct SnowflakeService {
